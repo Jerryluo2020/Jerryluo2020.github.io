@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gaussian Opt Energy Viewer</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+    }
+    body {
+      background: #f4f7fc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      background: white;
+      padding: 30px 30px 40px;
+      border-radius: 28px;
+      box-shadow: 0 20px 40px rgba(0, 20, 40, 0.12);
+      transition: box-shadow 0.2s;
+    }
+    h1 {
+      font-weight: 500;
+      font-size: 1.9rem;
+      color: #0b2b4a;
+      margin: 0 0 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    h1 small {
+      font-size: 1rem;
+      font-weight: 400;
+      color: #3b5f7a;
+      background: #e9eff6;
+      padding: 4px 14px;
+      border-radius: 40px;
+      letter-spacing: 0.2px;
+    }
+    .sub {
+      color: #2c5778;
+      margin-top: -6px;
+      margin-bottom: 28px;
+      border-left: 5px solid #2f7db0;
+      padding-left: 16px;
+      background: #f0f6fe;
+      border-radius: 0 12px 12px 0;
+      line-height: 1.5;
+      font-weight: 350;
+    }
+    .upload-area {
+      background: #f0f5fe;
+      border: 2px dashed #9bb8d6;
+      border-radius: 40px;
+      padding: 30px 20px;
+      text-align: center;
+      transition: background 0.2s, border-color 0.2s;
+      cursor: pointer;
+      margin-bottom: 30px;
+    }
+    .upload-area:hover {
+      background: #e8f0fd;
+      border-color: #3a7ca5;
+    }
+    .upload-area input[type="file"] {
+      display: none;
+    }
+    .upload-label {
+      display: inline-block;
+      background: #1f5f8a;
+      color: white;
+      padding: 14px 40px;
+      border-radius: 60px;
+      font-weight: 500;
+      font-size: 1.2rem;
+      letter-spacing: 0.3px;
+      box-shadow: 0 6px 14px rgba(26, 80, 120, 0.25);
+      transition: background 0.15s, transform 0.1s;
+      cursor: pointer;
+    }
+    .upload-label:hover {
+      background: #124a70;
+      transform: scale(0.97);
+    }
+    .file-status {
+      margin: 18px 0 8px;
+      font-size: 1rem;
+      color: #1b4b6b;
+      font-weight: 450;
+    }
+    .file-status span {
+      background: #d7e3f0;
+      padding: 4px 18px;
+      border-radius: 40px;
+      display: inline-block;
+    }
+    .chart-wrapper {
+      background: #ffffff;
+      padding: 10px 10px 5px 10px;
+      border-radius: 24px;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.02), 0 8px 18px rgba(0, 30, 60, 0.06);
+      margin: 16px 0 20px;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: auto !important;
+      max-height: 460px;
+      border-radius: 18px;
+      background: #fbfdff;
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 20px 30px;
+      background: #f2f8ff;
+      padding: 18px 28px;
+      border-radius: 60px;
+      margin-top: 24px;
+      font-size: 0.95rem;
+      color: #113753;
+      align-items: center;
+    }
+    .stats .label {
+      opacity: 0.7;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+    }
+    .stats .value {
+      font-weight: 600;
+      font-feature-settings: "tnum";
+      background: white;
+      padding: 0 14px;
+      border-radius: 40px;
+      line-height: 2;
+    }
+    .badge {
+      background: #d2e3f5;
+      border-radius: 30px;
+      padding: 6px 20px;
+      font-weight: 450;
+    }
+    .footer-note {
+      text-align: right;
+      font-size: 0.85rem;
+      color: #698aa8;
+      margin-top: 16px;
+      border-top: 1px solid #d8e5f2;
+      padding-top: 18px;
+      letter-spacing: 0.2px;
+    }
+    .no-data {
+      text-align: center;
+      color: #467a9e;
+      padding: 30px 0;
+      font-style: italic;
+    }
+    .error-msg {
+      background: #ffecf0;
+      color: #b3414a;
+      border-radius: 40px;
+      padding: 8px 24px;
+      display: inline-block;
+      margin-top: 10px;
+      font-weight: 450;
+    }
+    @media (max-width: 700px) {
+      .container { padding: 20px; }
+      .stats { flex-direction: column; align-items: stretch; gap: 6px; border-radius: 32px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>
+    ⚛️ Energy profile
+    <small>Gaussian opt</small>
+  </h1>
+  <div class="sub">
+    Load a Gaussian output file (<code>.log</code> or <code>.txt</code>) — 
+    the chart shows <strong>SCF Done</strong> energy per optimization step.
+  </div>
+
+  <!-- upload -->
+  <div class="upload-area" id="dropZone">
+    <input type="file" id="fileInput" accept=".log,.txt,.out">
+    <div>
+      <div class="upload-label" id="customUploadBtn">📂 Choose file</div>
+      <div class="file-status" id="fileStatus"><span>No file loaded</span></div>
+    </div>
+    <div style="margin-top: 12px; font-size: 0.9rem; color: #30658a;">
+      Drag & drop or click to select
+    </div>
+  </div>
+
+  <!-- chart -->
+  <div class="chart-wrapper">
+    <canvas id="energyChart"></canvas>
+  </div>
+
+  <!-- stats -->
+  <div class="stats" id="statsPanel">
+    <div><span class="label">Steps</span> <span class="value" id="stepCount">—</span></div>
+    <div><span class="label">Initial energy (Ha)</span> <span class="value" id="initialEnergy">—</span></div>
+    <div><span class="label">Final energy (Ha)</span> <span class="value" id="finalEnergy">—</span></div>
+    <div><span class="label">ΔE (Ha)</span> <span class="value" id="deltaEnergy">—</span></div>
+    <div><span class="badge" id="convergenceBadge">⏳ waiting</span></div>
+  </div>
+  <div class="footer-note">
+    Energy extracted from <code>SCF Done:  E(...) =  -XXX.XXXXXXXX</code> 
+  </div>
+</div>
+
+<script>
+  (function() {
+    const ctx = document.getElementById('energyChart').getContext('2d');
+    let chart = null;
+
+    // default empty dataset
+    const initChart = () => {
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'SCF Energy (Hartree)',
+            data: [],
+            borderColor: '#1f6b9e',
+            backgroundColor: 'rgba(28, 100, 160, 0.08)',
+            borderWidth: 3,
+            pointBackgroundColor: '#1f6b9e',
+            pointBorderColor: 'white',
+            pointBorderWidth: 1.5,
+            pointRadius: 3.5,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              labels: {
+                boxWidth: 14,
+                padding: 18,
+                font: { size: 13, weight: '500' }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const label = context.dataset.label || '';
+                  const val = context.raw;
+                  return `${label}: ${val.toFixed(8)} Hartree`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Optimization step',
+                color: '#1f4a6e',
+                font: { weight: '500', size: 13 }
+              },
+              grid: { color: 'rgba(0,0,0,0.04)' },
+              ticks: { stepSize: 1 }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Energy (Hartree)',
+                color: '#1f4a6e',
+                font: { weight: '500', size: 13 }
+              },
+              grid: { color: 'rgba(0,0,0,0.06)' },
+              ticks: {
+                callback: (value) => value.toFixed(5)
+              }
+            }
+          },
+          interaction: {
+            intersect: false,
+            mode: 'index'
+          }
+        }
+      });
+    };
+    initChart();
+
+    // helper: parse energy from a line
+    function parseEnergyLine(line) {
+      // SCF Done:  E(RB3LYP) =  -155.030563375     A.U. after   12 cycles
+      const regex = /SCF\s+Done:\s+E\([^)]*\)\s*=\s*([\-\+]?\d+\.\d+)/i;
+      const match = line.match(regex);
+      if (match && match[1]) {
+        const val = parseFloat(match[1]);
+        if (!isNaN(val)) return val;
+      }
+      return null;
+    }
+
+    // extract energies and check for optimization completion
+    function extractEnergiesFromText(text) {
+      const lines = text.split(/\r?\n/);
+      const energies = [];
+      let foundOptimization = false;
+      let stepCounter = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // detect optimization step header: "Step number   X out of a maximum of  Y"
+        if (/Step\s+number\s+\d+\s+out\s+of\s+a\s+maximum/i.test(line)) {
+          // we are inside optimization, but we don't rely on step count from header
+          // we count consecutive SCF energies after each step.
+          // Better: we track each SCF Done that appears after a "Berny optimization" or "GEDIIS" etc.
+          // but simplest: capture all SCF Done lines; they appear once per optimization step (usually)
+          // we will just collect all, and later we can assign step index sequentially.
+        }
+      }
+
+      // second pass: collect all SCF energies in order
+      // we also need to ensure we only take those that belong to optimization steps.
+      // In Gaussian opt output, every geometry step has one SCF Done.
+      // So we collect all SCF Done lines.
+      const scfLines = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/SCF\s+Done:/i.test(line)) {
+          const val = parseEnergyLine(line);
+          if (val !== null) {
+            scfLines.push({ val, line: i });
+          }
+        }
+      }
+
+      // filter: sometimes there are initial SCF or extra SCF (e.g., after final). 
+      // The optimization steps are those after the first "Berny optimization." or "GEDIIS" 
+      // We can detect start of optimization: "Berny optimization." or "GEDIIS optimizer"
+      let startIndex = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (/Berny\s+optimization\./i.test(l) || /GEDIIS\s+optimizer/i.test(l)) {
+          // find first SCF Done after this line
+          for (let j = i + 1; j < lines.length; j++) {
+            if (/SCF\s+Done:/i.test(lines[j])) {
+              // find the index in scfLines
+              const val = parseEnergyLine(lines[j]);
+              if (val !== null) {
+                const idx = scfLines.findIndex(item => item.val === val && Math.abs(item.val - val) < 1e-12);
+                if (idx !== -1) {
+                  startIndex = idx;
+                  break;
+                }
+              }
+            }
+          }
+          break;
+        }
+      }
+
+      // Also we need to avoid including energies after "Normal termination"?
+      // but it's fine. We also stop if we see "Optimization completed." 
+      // but we can take all energies from startIndex until the end.
+      // Additional check: sometimes optimization has multiple SCF per step? 
+      // Usually one per step. We'll keep them all.
+
+      // also, if we don't find a Berny start, fallback: use all SCF Done lines after the first "Input orientation"
+      // as a heuristic.
+      if (startIndex === 0 && scfLines.length > 0) {
+        // search for first "Input orientation" and take SCF after that
+        let inputOrientIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (/Input\s+orientation:/i.test(lines[i])) {
+            inputOrientIndex = i;
+            break;
+          }
+        }
+        if (inputOrientIndex > 0) {
+          const filtered = [];
+          for (let i = 0; i < scfLines.length; i++) {
+            // find line number of this SCF
+            const lineIdx = scfLines[i].line;
+            if (lineIdx > inputOrientIndex) {
+              filtered.push(scfLines[i]);
+            }
+          }
+          // replace scfLines with filtered
+          scfLines.length = 0;
+          scfLines.push(...filtered);
+        }
+      }
+
+      // Now we take consecutive SCF values from startIndex
+      const result = [];
+      for (let i = startIndex; i < scfLines.length; i++) {
+        result.push(scfLines[i].val);
+      }
+
+      // If we have many energies, but maybe there are duplicates due to reading initial guess?
+      // We'll keep as is.
+      // Also detect if optimization converged: look for "Optimization completed." 
+      let converged = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (/Optimization\s+completed\./i.test(lines[i])) {
+          converged = true;
+          break;
+        }
+      }
+
+      return { energies: result, converged };
+    }
+
+    function updateUI(energies, converged) {
+      const stepCountEl = document.getElementById('stepCount');
+      const initialEl = document.getElementById('initialEnergy');
+      const finalEl = document.getElementById('finalEnergy');
+      const deltaEl = document.getElementById('deltaEnergy');
+      const badge = document.getElementById('convergenceBadge');
+
+      if (!energies || energies.length === 0) {
+        stepCountEl.textContent = '—';
+        initialEl.textContent = '—';
+        finalEl.textContent = '—';
+        deltaEl.textContent = '—';
+        badge.textContent = '⏳ no data';
+        badge.style.background = '#dbe3ed';
+        return;
+      }
+
+      const n = energies.length;
+      stepCountEl.textContent = n;
+      const first = energies[0];
+      const last = energies[n-1];
+      initialEl.textContent = first.toFixed(7);
+      finalEl.textContent = last.toFixed(7);
+      const delta = last - first;
+      deltaEl.textContent = delta.toFixed(7) + (delta < 0 ? ' (↓)' : ' (↑)');
+      
+      if (converged) {
+        badge.textContent = '✅ Converged';
+        badge.style.background = '#c7e0d0';
+        badge.style.color = '#135c3a';
+      } else {
+        badge.textContent = '⏳ Not converged / incomplete';
+        badge.style.background = '#f0e1b8';
+        badge.style.color = '#7a6100';
+      }
+
+      // update chart
+      const labels = energies.map((_, idx) => (idx + 1).toString());
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = energies;
+        chart.update();
+      } else {
+        // recreate
+        initChart();
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = energies;
+        chart.update();
+      }
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const { energies, converged } = extractEnergiesFromText(text);
+        if (energies.length === 0) {
+          document.getElementById('fileStatus').innerHTML = `<span>⚠️ No SCF energies found in this file.</span>`;
+          updateUI([], false);
+          return;
+        }
+        document.getElementById('fileStatus').innerHTML = `<span>✅ ${file.name} (${energies.length} energies)</span>`;
+        updateUI(energies, converged);
+      };
+      reader.onerror = () => {
+        document.getElementById('fileStatus').innerHTML = `<span class="error-msg">⚠️ Error reading file</span>`;
+      };
+      reader.readAsText(file);
+    }
+
+    // ---- event listeners ----
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const customBtn = document.getElementById('customUploadBtn');
+
+    customBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (fileInput.files.length > 0) {
+        handleFile(fileInput.files[0]);
+      }
+      fileInput.value = ''; // allow re-upload same file
+    });
+
+    // drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '#e1edfd';
+      dropZone.style.borderColor = '#1f6b9e';
+    });
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '#f0f5fe';
+      dropZone.style.borderColor = '#9bb8d6';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '#f0f5fe';
+      dropZone.style.borderColor = '#9bb8d6';
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+
+    // Optional: load example from out.txt if embedded? Not possible without server, but we can provide a sample.
+    // User loads file manually.
+
+    // Init with empty state
+    updateUI([], false);
+    document.getElementById('fileStatus').innerHTML = `<span>📄 No file loaded — upload a Gaussian output</span>`;
+
+    // extra: reset file input after load to allow reload
+    // but we keep value reset after change.
+  })();
+</script>
+</body>
+</html>
