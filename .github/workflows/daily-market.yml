@@ -1,0 +1,60 @@
+name: Daily A-share snapshot
+on:
+  schedule:
+    - cron: '23 8 * * 1-5'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'a-share-source/**'
+      - '.github/workflows/daily-market.yml'
+permissions:
+  contents: read
+concurrency:
+  group: a-share-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+          run_install: false
+      - name: Install dependencies
+        working-directory: a-share-source
+        run: pnpm install --frozen-lockfile
+      - name: Build browser analysis
+        working-directory: a-share-source
+        run: pnpm exec vite build --config github-pages/vite.config.ts
+      - name: Collect complete daily snapshot
+        working-directory: a-share-source
+        run: node scripts/collect-snapshot.mjs ../github-pages-dist/data
+      - name: Preserve homepage and prepare Pages artifact
+        run: |
+          mkdir -p public-site
+          cp -a README.md index.html test.html public-site/
+          cp -a github-pages-dist public-site/a-share
+          cp a-share-source/public/favicon.svg public-site/a-share/
+          touch public-site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public-site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy daily snapshot
+        id: deployment
+        uses: actions/deploy-pages@v4

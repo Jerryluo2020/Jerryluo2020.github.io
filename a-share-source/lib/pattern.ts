@@ -8,6 +8,12 @@ export type Provider = 'eastmoney' | 'tencent';
 export const SOURCE = '东方财富 · 前复权日线';
 export const FACTORS = ['价格路径', '量能', '均线', 'MACD', 'RSI', '换手率'];
 export const WEIGHTS = [0.4, 0.15, 0.15, 0.1, 0.1, 0.1];
+type HistoryReader = (stock: Security, end: string, provider: Provider, lookback: number) => Promise<Bar[]>;
+let snapshotHistory: HistoryReader | undefined;
+let snapshotUniverse: ((page: number) => Promise<{ stocks: Security[]; total: number; pages: number }>) | undefined;
+export function useSnapshot(readHistory: HistoryReader, readUniverse: NonNullable<typeof snapshotUniverse>) {
+  snapshotHistory = readHistory; snapshotUniverse = readUniverse;
+}
 const memo = new Map<string, { at: number; value: unknown }>();
 async function json(url: URL) {
   const key = url.toString(), hit = memo.get(key);
@@ -30,6 +36,7 @@ export function completeDate() {
   return date;
 }
 export async function history(stock: Security, end: string, provider: Provider = 'eastmoney', lookback = 250): Promise<Bar[]> {
+  if (snapshotHistory) return snapshotHistory(stock, end, provider, lookback);
   if (provider === 'tencent') {
     const symbol = `${stock.market === 1 ? 'sh' : /^[489]/.test(stock.code) ? 'bj' : 'sz'}${stock.code}`;
     const url = new URL('https://web.ifzq.gtimg.cn/appstock/app/fqkline/get');
@@ -91,6 +98,7 @@ export async function reference(sample: Sample, provider?: Provider): Promise<Re
   return { stock, start, end, points, provider: selected, source: selected === 'eastmoney' ? SOURCE : '腾讯财经 · 前复权日线（缺成交额、换手率）' };
 }
 export async function universePage(page: number): Promise<{ stocks: Security[]; total: number; pages: number }> {
+  if (snapshotUniverse) return snapshotUniverse(page);
   const root = 'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/';
   const count = Number(await json(new URL(root + 'Market_Center.getHQNodeStockCount?node=hs_a')));
   const url = new URL(root + 'Market_Center.getHQNodeData');
