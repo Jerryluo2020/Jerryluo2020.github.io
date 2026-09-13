@@ -32,9 +32,33 @@ jobs:
       - name: Build browser analysis
         working-directory: a-share-source
         run: pnpm exec vite build --config github-pages/vite.config.ts
+      - name: Choose cache date
+        id: cache-date
+        working-directory: a-share-source
+        run: node --input-type=module -e "import {completeDate} from './lib/pattern.ts'; console.log('date='+completeDate())" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        with:
+          path: snapshot-cache
+          key: daily-snapshot-v2-${{ steps.cache-date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: daily-snapshot-v2-${{ steps.cache-date.outputs.date }}-
       - name: Collect complete daily snapshot
         working-directory: a-share-source
-        run: node scripts/collect-snapshot.mjs ../github-pages-dist/data
+        run: node scripts/collect-snapshot.mjs ../github-pages-dist/data ../snapshot-cache
+      - name: Save collection checkpoint
+        if: always() && steps.cache-date.outputs.date != ''
+        uses: actions/cache/save@v4
+        with:
+          path: snapshot-cache
+          key: daily-snapshot-v2-${{ steps.cache-date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload collection diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collection-diagnostics
+          path: |
+            github-pages-dist/data/failures.json
+            github-pages-dist/data/progress.json
+          if-no-files-found: ignore
       - name: Preserve homepage and prepare Pages artifact
         run: |
           mkdir -p public-site

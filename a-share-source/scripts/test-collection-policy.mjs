@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {retryRead,collectGroup} from './collection-policy.mjs';
+let count=0;const delays=[];
+assert.equal(await retryRead(()=>{if(++count<3)throw Error('HTTP 429 Retry-After=5');return 7;},{wait:async ms=>delays.push(ms)}),7);
+assert.deepEqual(delays,[5000,6000]);
+count=0;await assert.rejects(retryRead(()=>{count++;throw Error('HTTP 403');},{wait:async()=>{}}),/403/);assert.equal(count,1);
+let successes=[],failures=[];
+await collectGroup([0,1,2,3],{read:async s=>{if(s===2)throw Error('missing');return [s];},onSuccess:(s)=>successes.push(s),onFailure:s=>failures.push(s),wait:async()=>{},now:()=>0});
+assert.deepEqual(successes,[0,1,3]);assert.deepEqual(failures,[2]);
+let attempts=0;
+await assert.rejects(collectGroup(Array.from({length:80},(_,i)=>i),{read:async()=>{attempts++;throw Error('HTTP 503');},onSuccess:()=>{},onFailure:()=>{},wait:async()=>{},now:()=>0}),/停止请求/);
+assert.equal(attempts,48);
+console.log('PASS: backoff, Retry-After, authorization stop, retained success, failed batch circuit breaker');
