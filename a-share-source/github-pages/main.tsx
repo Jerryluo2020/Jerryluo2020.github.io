@@ -32,7 +32,7 @@ function App(){
   useEffect(()=>{call('/meta').then(v=>setMeta(v as Snapshot)).catch(e=>setError(e.message));},[]);
   return <>
     <div className="pattern-source-note" role="status" style={{margin:16}}>
-      {error || (meta ? `收盘数据：${meta.date} · 日线采集 ${meta.available}/${meta.total} 只（${(meta.available/meta.total*100).toFixed(1)}%），失败 ${meta.failed} 只 · 样本最早 ${meta.minSampleDate}（个股以实际数据为准）` : '正在加载每日数据快照…')}
+      {error || (meta ? `${meta.testMode ? '测试模式 · 部分数据也可发布 · ' : ''}收盘数据：${meta.date} · 日线采集 ${meta.available}/${meta.total} 只（${(meta.available/meta.total*100).toFixed(1)}%），未取得日线 ${meta.failed} 只 · 样本最早 ${meta.minSampleDate}（个股以实际数据为准）` : '正在加载每日数据快照…')}
       <p>每个工作日北京时间16:23启动更新，可能延迟；行情日期以实际快照为准。首次全市场筛选需下载压缩日线，计算在本设备完成。刷新页面可载入新快照。</p>
       {meta&&<p>{meta.source} · 采集时间：{new Date(meta.generatedAt).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'})}（北京时间）</p>}
     </div>

@@ -20,7 +20,7 @@ async function json(url: URL) {
   if (hit && Date.now() - hit.at < 900_000) return hit.value as any;
   const response = await fetch(key, { headers: { Referer: 'https://quote.eastmoney.com/', Accept: 'application/json' }, signal: AbortSignal.timeout(12_000) });
   if (!response.ok) throw new Error(`行情源 HTTP ${response.status}${response.headers.get('retry-after') ? ' Retry-After='+response.headers.get('retry-after') : ''}`);
-  const body = await response.json();
+  const body: any = await response.json();
   if (body && typeof body === 'object' && typeof body.code === 'number' && body.code !== 0) throw new Error(`行情源 code=${body.code}: ${String(body.msg || body.message || '请求失败').slice(0,160)}`);
   if (memo.size > 100) memo.delete(memo.keys().next().value!);
   memo.set(key, { at: Date.now(), value: body });

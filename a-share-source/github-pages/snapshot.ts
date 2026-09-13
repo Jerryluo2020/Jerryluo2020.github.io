@@ -1,7 +1,7 @@
 import { useSnapshot, reference, targetCalendar, matchStock, validateSample, universePage } from '../lib/pattern.ts';
 import type { Bar, Security, Provider } from '../lib/pattern.ts';
 export type PackedBar = [string, number, number, number, number, number, number | null, number | null];
-export type Snapshot = { version: 1; generatedAt: string; date: string; provider: Provider; source: string; stocks: Security[]; total: number; available: number; failed: number; minSampleDate: string; files: Record<string, string>; index: Bar[]; rankings: unknown };
+export type Snapshot = { version: 1; testMode?: boolean; generatedAt: string; date: string; provider: Provider; source: string; stocks: Security[]; total: number; available: number; failed: number; minSampleDate: string; files: Record<string, string>; index: Bar[]; rankings: unknown };
 export const securityKey = (s: Security) => `${s.market}.${s.code}`;
 export function unpack(v: PackedBar): Bar { return {date:v[0],open:v[1],close:v[2],high:v[3],low:v[4],volume:v[5],amount:v[6],turnover:v[7]}; }
 export function installSnapshot(meta: Snapshot, getRows: (key: string) => Promise<Bar[]>) {

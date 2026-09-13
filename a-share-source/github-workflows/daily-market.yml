@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: '23 8 * * 1-5'
   workflow_dispatch:
+    inputs:
+      test_mode:
+        description: Allow partial data for testing
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -42,6 +47,8 @@ jobs:
           key: daily-snapshot-v2-${{ steps.cache-date.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: daily-snapshot-v2-${{ steps.cache-date.outputs.date }}-
       - name: Collect complete daily snapshot
+        env:
+          SNAPSHOT_TEST_MODE: ${{ inputs.test_mode == true || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test-snapshot]')) }}
         working-directory: a-share-source
         run: node scripts/collect-snapshot.mjs ../github-pages-dist/data ../snapshot-cache
       - name: Save collection checkpoint

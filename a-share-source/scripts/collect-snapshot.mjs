@@ -9,6 +9,7 @@ await mkdir(cache,{recursive:true});
 if(!out)throw new Error('Usage: node scripts/collect-snapshot.mjs OUTPUT_DIRECTORY');
 await mkdir(out,{recursive:true});
 const end=completeDate();
+const testMode=process.env.SNAPSHOT_TEST_MODE === 'true';
 // One provider per snapshot: never compare differently adjusted price series.
 const provider='tencent',indexStock={code:'000001',name:'上证指数',market:1};
 const retry=retryRead;
@@ -30,6 +31,7 @@ let available=0,resumed=0;
 const checkpointPath=`${cache}/state.json`;
 let state={date,provider,files:{}};
 try{const saved=JSON.parse(await readFile(checkpointPath,'utf8'));if(saved.date===date&&saved.provider===provider)state=saved;}catch{}
+const cachedTest=testMode && Object.keys(state.files).length>0;
 async function checkpoint(){
   await writeFile(checkpointPath,JSON.stringify(state));
   await writeFile(`${out}/failures.json`,JSON.stringify(failures));
@@ -52,7 +54,7 @@ for(let offset=0;offset<stocks.length;offset+=80){
   }
   let fatal;
   try{
-    await collectGroup(group.filter(s=>!packed[`${s.market}.${s.code}`]),{
+    await collectGroup(group.filter(s=>!cachedTest && !packed[`${s.market}.${s.code}`]),{
       read:async stock=>{const bars=await history(stock,date,provider,1100);if(!bars.length)throw new Error('empty history');return bars;},
       onSuccess:(stock,bars)=>{packed[`${stock.market}.${stock.code}`]=bars.map(b=>[b.date,b.open,b.close,b.high,b.low,b.volume,b.amount,b.turnover]);available++;},
       onFailure:(stock,e)=>{const failure={code:stock.code,market:stock.market,error:String(e.message).slice(0,250)};failures.push(failure);console.error(JSON.stringify({stage:'stock-failure',...failure}));},
@@ -65,11 +67,12 @@ for(let offset=0;offset<stocks.length;offset+=80){
   await copyFile(`${out}/${file}`,`${cache}/${file}`);
   for(const key of Object.keys(packed)){files[key]=file;state.files[key]=file;}
   await checkpoint();
-  if(fatal)throw fatal;
+  if(fatal){if(testMode){console.warn('测试模式：发布已成功采集的部分数据');break;}throw fatal;}
 }
 // Never replace a usable site with an almost empty collection.
-if(available/stocks.length<0.9)throw new Error(`日线覆盖率 ${(available/stocks.length*100).toFixed(1)}% 低于90%，保留上一次发布`);
+if(!available)throw new Error('没有可用日线，无法生成测试快照');
+if(!testMode && available/stocks.length<0.9)throw new Error(`日线覆盖率 ${(available/stocks.length*100).toFixed(1)}% 低于90%，保留上一次发布`);
 const generatedAt=new Date().toISOString();
-const manifest={version:1,date,generatedAt,provider,source,stocks,total:stocks.length,available,failed:failures.length,minSampleDate:index[60].date,index,files,rankings:{...rankings,updatedAt:generatedAt,source:`${rankingSource} · ${date} 收盘快照`}};
+const manifest={version:1,testMode,date,generatedAt,provider,source,stocks,total:stocks.length,available,failed:stocks.length-available,minSampleDate:index[60].date,index,files,rankings:{...rankings,updatedAt:generatedAt,source:`${rankingSource} · ${date} 收盘快照`}};
 await writeFile(`${out}/manifest.json`,JSON.stringify(manifest));
 console.log(JSON.stringify({date,available,total:stocks.length,generatedAt}));

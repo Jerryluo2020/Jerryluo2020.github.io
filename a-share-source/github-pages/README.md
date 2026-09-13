@@ -15,3 +15,5 @@
 测试：`node --experimental-strip-types scripts/test-snapshot.mjs`。
 
 构建与采集成功后才上传并部署 Pages artifact，不提交每天的大体积数据到 Git 历史。GitHub 源码是持续维护来源；原 Sites 站点不再承担此版本的数据或计算请求。
+
+测试发布：手动运行时勾选 test_mode，或测试提交包含 [test-snapshot] 标记。允许非零覆盖率的部分数据发布，页面明确标注测试及缺失数量。定时正式任务仍要求90%覆盖率。
