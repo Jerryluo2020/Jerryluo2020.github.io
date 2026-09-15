@@ -1,7 +1,5 @@
 name: Daily A-share snapshot
 on:
-  schedule:
-    - cron: '23 8 * * 1-5'
   workflow_dispatch:
     inputs:
       test_mode:
